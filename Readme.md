@@ -1,4 +1,4 @@
-# Knative Gitlab Source-to-app with push
+# Knative GitHub Source-to-app with push
 
 This PoC was created during: https://www.hack8s.de
 -> Create Github Repo
