@@ -31,7 +31,7 @@ subjects:
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: github-message-dumper
+  name: event-trigger-github
 spec:
   runLatest:
     configuration:

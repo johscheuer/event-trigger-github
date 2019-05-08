@@ -24,6 +24,6 @@ spec:
       name: githubsecret
       key: secretToken
   sink:
-    apiVersion: serving.knative.dev/v1alpha1
-    kind: Service
-    name: github-message-dumper
+    apiVersion: eventing.knative.dev/v1alpha1
+    kind: Broker
+    name: default

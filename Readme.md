@@ -124,6 +124,12 @@ Change the personal access token in `github-source.yaml` and run:
 kubectl apply -f github-source.yaml
 ```
 
+Enable default event and add [knative eventing trigger](https://github.com/knative/eventing/blob/release-0.5/docs/spec/spec.md) for push events
+```bash
+kubectl label namespace default knative-eventing-injection=enabled
+kubectl apply -f trigger.yaml
+```
+
 ## Have fun
 
 Create a new push and wait for the new build:
