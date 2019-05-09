@@ -36,6 +36,9 @@ spec:
   runLatest:
     configuration:
       revisionTemplate:
+        metadata:
+          labels:
+            knative.dev/type: app
         spec:
           serviceAccountName: github-event-listener
           container:
