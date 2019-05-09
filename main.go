@@ -172,11 +172,13 @@ func GetConfig() (serving.ServingV1alpha1Interface, error) {
 }
 
 func (pet *PushEventTrigger) updateServiceBuildMeta(timestamp int) error {
+	log.Printf("Fetch service: %s/%s\n", pet.namespace, pet.ksvcName)
 	service, err := pet.client.Services(pet.namespace).Get(pet.ksvcName, v1.GetOptions{})
 	if err != nil {
 		log.Println(err)
 	}
 
+	log.Println("Fetch Build")
 	build := service.Spec.RunLatest.Configuration.Build
 	obj := &buildv1alpha1.Build{}
 
@@ -185,6 +187,7 @@ func (pet *PushEventTrigger) updateServiceBuildMeta(timestamp int) error {
 		return err
 	}
 
+	// todo fix nil handler if labels not specified
 	obj.ObjectMeta.Labels["client.knative.dev/nonce"] = strconv.Itoa(timestamp)
 	service.Spec.RunLatest.Configuration.Build = &raw.RawExtension{Object: obj}
 
@@ -199,6 +202,7 @@ func (pet *PushEventTrigger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Message Dumper received a message: %+v", string(reqBytes))
 	} else {
 		log.Printf("Error dumping the request: %+v :: %+v", err, r)
+		return
 	}
 
 	var pushEvent PushEvent
@@ -211,6 +215,7 @@ func (pet *PushEventTrigger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.Unmarshal(body, &pushEvent); err != nil {
 		log.Println(err)
+		return
 	}
 
 	if pushEvent.Repository.Name != pet.repoName {
@@ -229,13 +234,15 @@ func (pet *PushEventTrigger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// ToDo this should be flags
 	pet := &PushEventTrigger{
-		namespace: "default",
-		ksvcName:  "app-from-source",
-		repoName:  "go-hello-webserver",
+		namespace: "todo-app",
+		ksvcName:  "todo-app-web",
+		repoName:  "todo-app-web",
 	}
+
+	log.Printf("Listening for repo: %s", pet.repoName)
 	client, err := GetConfig()
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
 
 	pet.client = client
