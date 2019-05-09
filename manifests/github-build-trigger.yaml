@@ -1,7 +1,7 @@
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Trigger
 metadata:
-  name: my-service-trigger
+  name: github-build-trigger
 spec:
   filter:
     sourceAndType:
@@ -10,4 +10,4 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1alpha1
       kind: Service
-      name: event-trigger-github
+      name: github-source-to-app-service

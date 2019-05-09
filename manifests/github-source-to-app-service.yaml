@@ -31,7 +31,7 @@ subjects:
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: event-trigger-github
+  name: github-source-to-app-service
 spec:
   runLatest:
     configuration:

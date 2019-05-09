@@ -112,10 +112,11 @@ curl app-from-source.default.35.204.237.123.nip.io
 
 ## Build new revision on push
 
-Create new ServiceAccount with requiered roles and deploy the event trigger (note this endpoint is public available! You probably don't want this):
+Create new ServiceAccount with required roles and deploy the github-source-to-app-service
+(note this endpoint is public available! You probably don't want this):
 
 ```bash
-kubectl apply -f event-trigger.yaml
+kubectl apply -f github-source-to-app-service.yaml
 ```
 
 Change the personal access token in `github-source.yaml` and run:
@@ -127,7 +128,7 @@ kubectl apply -f github-source.yaml
 Enable default event and add [knative eventing trigger](https://github.com/knative/eventing/blob/release-0.5/docs/spec/spec.md) for push events
 ```bash
 kubectl label namespace default knative-eventing-injection=enabled
-kubectl apply -f trigger.yaml
+kubectl apply -f github-build-trigger.yaml
 ```
 
 ## Have fun
