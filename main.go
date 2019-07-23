@@ -2,17 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
-	"strconv"
 	"time"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	raw "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serving "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -151,47 +150,77 @@ type PushEvent struct {
 }
 
 type PushEventTrigger struct {
-	client    serving.ServingV1alpha1Interface
-	namespace string
-	ksvcName  string
-	repoName  string
+	client            *tekton.Clientset
+	namespace         string
+	pipelineRunPrefix string
+	repoName          string
+	pipelineName      string
 }
 
-func GetConfig() (serving.ServingV1alpha1Interface, error) {
+func GetConfig() (*tekton.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return &tekton.Clientset{}, err
 	}
 
-	client, err := serving.NewForConfig(config)
+	client, err := tekton.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return &tekton.Clientset{}, err
 	}
 
 	return client, nil
 }
 
-func (pet *PushEventTrigger) updateServiceBuildMeta(timestamp int) error {
-	log.Printf("Fetch service: %s/%s\n", pet.namespace, pet.ksvcName)
-	service, err := pet.client.Services(pet.namespace).Get(pet.ksvcName, v1.GetOptions{})
-	if err != nil {
-		log.Println(err)
+func (pet *PushEventTrigger) createPipelineRun(timestamp int) error {
+	runName := fmt.Sprintf("%s-%d", pet.pipelineRunPrefix, timestamp)
+
+	log.Printf("Create PipelineRun: %s in namespace %s\n", runName, pet.namespace)
+
+	pipelineRun := &tektonv1alpha1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      runName,
+			Namespace: pet.namespace,
+		},
+		Spec: tektonv1alpha1.PipelineRunSpec{
+			PipelineRef: tektonv1alpha1.PipelineRef{
+				Name: pet.pipelineName,
+			},
+			Resources: []tektonv1alpha1.PipelineResourceBinding{
+				tektonv1alpha1.PipelineResourceBinding{
+					Name: "git-source",
+					ResourceRef: tektonv1alpha1.PipelineResourceRef{
+						Name: "todo-app-git",
+					},
+				},
+			},
+			Params: []tektonv1alpha1.Param{
+				tektonv1alpha1.Param{
+					Name:  "pathToYamlFile",
+					Value: "knative/todo-app.yaml",
+				},
+				tektonv1alpha1.Param{
+					Name:  "imageUrl",
+					Value: "johscheuer/todo-app-web",
+				},
+				tektonv1alpha1.Param{
+					Name:  "pathToContext",
+					Value: "dir:///workspace/git-source/",
+				},
+				tektonv1alpha1.Param{
+					Name:  "pathToDockerFile",
+					Value: "Dockerfile",
+				},
+				tektonv1alpha1.Param{
+					Name:  "imageTag",
+					Value: fmt.Sprintf("tekton-%d", timestamp),
+				},
+			},
+			ServiceAccount: "build-bot",
+		},
 	}
 
-	log.Println("Fetch Build")
-	build := service.Spec.RunLatest.Configuration.Build
-	obj := &buildv1alpha1.Build{}
+	_, err := pet.client.TektonV1alpha1().PipelineRuns(pet.namespace).Create(pipelineRun)
 
-	err = build.As(obj)
-	if err != nil {
-		return err
-	}
-
-	// todo fix nil handler if labels not specified
-	obj.ObjectMeta.Labels["client.knative.dev/nonce"] = strconv.Itoa(timestamp)
-	service.Spec.RunLatest.Configuration.Build = &raw.RawExtension{Object: obj}
-
-	_, err = pet.client.Services(pet.namespace).Update(service)
 	return err
 }
 
@@ -223,7 +252,7 @@ func (pet *PushEventTrigger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = pet.updateServiceBuildMeta(pushEvent.Repository.PushedAt)
+	err = pet.createPipelineRun(pushEvent.Repository.PushedAt)
 	if err != nil {
 		log.Println(err)
 	}
@@ -234,9 +263,10 @@ func (pet *PushEventTrigger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// ToDo this should be flags
 	pet := &PushEventTrigger{
-		namespace: "todo-app",
-		ksvcName:  "todo-app-web",
-		repoName:  "todo-app-web",
+		namespace:         "todo-app",
+		pipelineRunPrefix: "todo-app",
+		pipelineName:      "build-and-deploy-pipeline",
+		repoName:          "todo-app-web",
 	}
 
 	log.Printf("Listening for repo: %s", pet.repoName)

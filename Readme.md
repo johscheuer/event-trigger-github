@@ -1,5 +1,7 @@
 # Knative GitHub Source-to-app with push
 
+TODO update docs! 
+
 This PoC was created during: https://www.hack8s.de
 -> Create Github Repo
 -> New push should trigger a new serving revision
@@ -140,3 +142,9 @@ kubectl get build
 ```
 
 Warning this will trigger a new build for any push on this repo (even if it's not master and the Docker image will be build from the master branch)
+
+## Development
+
+```bash
+docker build -t johscheuer/event-trigger-github:latest .
+```
